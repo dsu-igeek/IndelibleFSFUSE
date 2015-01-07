@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="IndelibleVirtualSAN" default="buildJar" basedir=".">
+	<description>
+        Build file for iGeek, Inc. Indelible FS FUSE filesystem
+	</description>
+	<import file="../iGeekCommon/build-common.xml"/>
+	<!-- set global properties for this build -->
+	<target name="localProperties">
+		<property name="testData" location="testdata"/>
+		<property name="testTemp" location="${output}/testTemp"/>
+		<property name="jarName" value="IndelibleFUSEFS.jar"/>
+		<path id="localLibs">
+			<fileset dir="../iGeekCommon/output/lib">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="../IndelibleFSClient/output/lib">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="../IndelibleServerCore/output/lib">
+				<include name="*.jar" />
+			</fileset>
+			<fileset dir="../Luwak/output/lib">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+	</target>
+	<target name="setupOtherProjects">
+		<addOtherProject otherProjectName="iGeekCommon" classPathRefID="localLibs"/>
+		<addOtherProject otherProjectName="IndelibleFSClient" classPathRefID="localLibs"/>
+		<addOtherProject otherProjectName="IndelibleServerCore" classPathRefID="localLibs"/>
+		<addOtherProject otherProjectName="Luwak" classPathRefID="localLibs"/>
+	</target>
+	<target name="buildJar" depends="init, otherBuilds, iGeekBuildCommon.buildJar"/>
+</project>
