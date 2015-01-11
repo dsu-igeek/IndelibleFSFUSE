@@ -19,10 +19,10 @@ import java.util.HashMap;
 
 import com.igeekinc.indelible.indeliblefs.IndelibleFileNodeIF;
 import com.igeekinc.indelible.oid.ObjectID;
-import com.igeekinc.luwak.inode.InodeManager;
+import com.igeekinc.luwak.inode.FUSEInodeManager;
 import com.igeekinc.util.objectcache.LRUQueue;
 
-public class IndelibleFSInodeManager extends InodeManager<IndelibleFSInode>
+public class IndelibleFSInodeManager extends FUSEInodeManager<IndelibleFSInode>
 {
 	protected HashMap<ObjectID, IndelibleFSInode>inodeByObjectIDMap = new HashMap<ObjectID, IndelibleFSInode>();
 	protected LRUQueue<ObjectID, IndelibleFSInode>lruQueue = new LRUQueue<ObjectID, IndelibleFSInode>(50);

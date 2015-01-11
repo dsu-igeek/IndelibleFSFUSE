@@ -32,7 +32,6 @@ import com.igeekinc.indelible.indeliblefs.exceptions.FileExistsException;
 import com.igeekinc.indelible.indeliblefs.exceptions.ForkNotFoundException;
 import com.igeekinc.indelible.indeliblefs.exceptions.ObjectNotFoundException;
 import com.igeekinc.indelible.indeliblefs.exceptions.PermissionDeniedException;
-import com.igeekinc.indelible.indeliblefs.remote.IndelibleDirectoryNodeRemote;
 import com.igeekinc.indelible.oid.IndelibleFSObjectID;
 import com.igeekinc.luwak.FUSEAttr;
 import com.igeekinc.luwak.inode.CreateInfo;
@@ -155,6 +154,7 @@ public abstract class IndelibleFSInode extends FUSEInode<IndelibleFSFUSEVolume>
 			try
 			{
 				IndelibleFSForkIF dataFork = getNode().getFork("data", true);
+				returnHandle.setInode(this);
 				returnHandle.setOpenFork(dataFork);
 			} catch (FileNotFoundException e)
 			{
@@ -194,7 +194,7 @@ public abstract class IndelibleFSInode extends FUSEInode<IndelibleFSFUSEVolume>
 				throw new IsDirectoryException();	// Can't open for writing
 			if (!node.isDirectory())
 				throw new NotDirectoryException();
-			returnHandle.setDir((IndelibleDirectoryNodeRemote) node);
+			returnHandle.setDir((IndelibleDirectoryNodeIF) node);
 		} catch (RemoteException e)
 		{
 			Logger.getLogger(getClass()).error(new ErrorLogMessage("Caught exception"), e);
@@ -255,6 +255,7 @@ public abstract class IndelibleFSInode extends FUSEInode<IndelibleFSFUSEVolume>
 					if (openFork == null)
 						throw new NoEntryException();
 					IndelibleFSFileHandle returnHandle = (IndelibleFSFileHandle) volume.getAdapter().allocateFileHandle();
+					returnHandle.setInode(returnInode);
 					returnHandle.setOpenFork(openFork);
 					
 					CreateInfo<IndelibleFSFileHandle, IndelibleFSInode>returnInfo = new CreateInfo<IndelibleFSFileHandle, IndelibleFSInode>(returnHandle, returnInode);
@@ -294,29 +295,38 @@ public abstract class IndelibleFSInode extends FUSEInode<IndelibleFSFUSEVolume>
 				synchronized(parent)
 				{
 					volume.getConnection(reqInfo).startTransaction();
-					IndelibleDirectoryNodeIF parentDir = (IndelibleDirectoryNodeIF)parent.getNode();
-					CreateDirectoryInfo createInfo;
+					boolean committed = false;
 					try
 					{
-						createInfo = parentDir.createChildDirectory(name);
-					} catch (FileExistsException e)
-					{
-						Logger.getLogger(getClass()).error(new ErrorLogMessage("Caught exception"), e);
-						throw new ExistsException();
+						IndelibleDirectoryNodeIF parentDir = (IndelibleDirectoryNodeIF)parent.getNode();
+						CreateDirectoryInfo createInfo;
+						try
+						{
+							createInfo = parentDir.createChildDirectory(name);
+						} catch (FileExistsException e)
+						{
+							Logger.getLogger(getClass()).error(new ErrorLogMessage("Caught exception"), e);
+							throw new ExistsException();
+						}
+						parent.setNode(createInfo.getDirectoryNode());
+						int newInodeNum = volume.getNextInodeNum();
+
+						ClientFileMetaData md = createDirectoryMD(reqInfo, mode);
+
+						ClientFileMetaDataProperties mdProperties = md.getProperties();
+						IndelibleDirectoryNodeIF createDirNode = createInfo.getCreatedNode();
+						createDirNode.setMetaDataResource(IndelibleFileLike.kClientFileMetaDataPropertyName, mdProperties.getMap());
+						volume.getConnection(reqInfo).commit();
+						committed = true;
+						IndelibleFSInode returnInode = volume.createInode(createInfo.getCreatedNode(), newInodeNum, 0);
+						volume.getInodeManager().addInode(returnInode);
+						return returnInode;
 					}
-					parent.setNode(createInfo.getDirectoryNode());
-					int newInodeNum = volume.getNextInodeNum();
-
-					ClientFileMetaData md = createDirectoryMD(reqInfo, mode);
-					
-					ClientFileMetaDataProperties mdProperties = md.getProperties();
-					IndelibleDirectoryNodeIF createDirNode = createInfo.getCreatedNode();
-					createDirNode.setMetaDataResource(IndelibleFileLike.kClientFileMetaDataPropertyName, mdProperties.getMap());
-					volume.getConnection(reqInfo).commit();
-					IndelibleFSInode returnInode = volume.createInode(createInfo.getCreatedNode(), newInodeNum, 0);
-					volume.getInodeManager().addInode(returnInode);
-
-					return returnInode;
+					finally
+					{
+						if (!committed)
+							volume.getConnection(reqInfo).rollback();
+					}
 				}
 			}
 			else

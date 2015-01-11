@@ -15,14 +15,14 @@
  */
 package com.igeekinc.indelible.indeliblefs.fusefs;
 
-import com.igeekinc.indelible.indeliblefs.remote.IndelibleFileNodeRemote;
+import com.igeekinc.indelible.indeliblefs.IndelibleFileNodeIF;
 import com.igeekinc.luwak.FUSEAttr;
 import com.igeekinc.luwak.inode.exceptions.InodeIOException;
 import com.igeekinc.util.ClientFileMetaDataProperties;
 
 public class IndelibleFSFUSEAttr extends FUSEAttr
 {
-	public static IndelibleFSFUSEAttr getAttrForProperties(IndelibleFileNodeRemote node, ClientFileMetaDataProperties mdProperties) throws InodeIOException
+	public static IndelibleFSFUSEAttr getAttrForProperties(IndelibleFileNodeIF node, ClientFileMetaDataProperties mdProperties) throws InodeIOException
 	{
 		return null;
 	}

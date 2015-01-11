@@ -22,22 +22,24 @@ import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 
+import com.igeekinc.indelible.indeliblefs.IndelibleDirectoryNodeIF;
+import com.igeekinc.indelible.indeliblefs.IndelibleFileNodeIF;
 import com.igeekinc.indelible.indeliblefs.exceptions.ObjectNotFoundException;
 import com.igeekinc.indelible.indeliblefs.exceptions.PermissionDeniedException;
-import com.igeekinc.indelible.indeliblefs.remote.IndelibleDirectoryNodeRemote;
-import com.igeekinc.indelible.indeliblefs.remote.IndelibleFileNodeRemote;
 import com.igeekinc.luwak.FUSEDirEntry;
 import com.igeekinc.luwak.inode.DirectoryEntryBuffer;
 import com.igeekinc.luwak.inode.FUSEReqInfo;
 import com.igeekinc.luwak.inode.exceptions.InodeException;
+import com.igeekinc.luwak.inode.exceptions.InodeIOException;
 import com.igeekinc.luwak.inode.exceptions.PermissionException;
 import com.igeekinc.luwak.util.FUSEDirHandle;
 import com.igeekinc.util.logging.ErrorLogMessage;
 
 public class IndelibleFSDirHandle extends FUSEDirHandle
 {
-	IndelibleDirectoryNodeRemote dir;
-	ArrayList<FUSEDirEntry>dirEntries;
+	private IndelibleDirectoryNodeIF dir;
+	private ArrayList<FUSEDirEntry>dirEntries;
+	private long lastLoadedTime;
 	
 	protected IndelibleFSDirHandle(long handleNum)
 	{
@@ -47,7 +49,7 @@ public class IndelibleFSDirHandle extends FUSEDirHandle
 	
 	static Charset utf8 = Charset.forName("UTF-8");
 	
-	public void setDir(IndelibleDirectoryNodeRemote dir) throws IOException, PermissionException
+	public void setDir(IndelibleDirectoryNodeIF dir) throws IOException, PermissionException
 	{
 		this.dir = dir;
 		if (!dir.isDirectory())
@@ -63,6 +65,16 @@ public class IndelibleFSDirHandle extends FUSEDirHandle
 	{
 		DirectoryEntryBuffer returnBuffer = new DirectoryEntryBuffer(size);
 		int index = getIndexForOffset(offset);
+		if (index == 0 && System.currentTimeMillis() - lastLoadedTime > 1000)
+		{
+			try
+			{
+				reloadDirectoryEntries();
+			} catch (IOException e)
+			{
+				throw new InodeIOException();
+			}
+		}
 		int startIndex = index;
 		if (index >= 0)
 		{
@@ -80,7 +92,7 @@ public class IndelibleFSDirHandle extends FUSEDirHandle
 	}
 	
 	public void reloadDirectoryEntries()
-			throws IOException, RemoteException, PermissionException
+			throws IOException, PermissionException
 	{
 		String[] names;
 		try
@@ -106,7 +118,7 @@ public class IndelibleFSDirHandle extends FUSEDirHandle
 		{
 			try
 			{
-				IndelibleFileNodeRemote curFile = dir.getChildNode(curName);
+				IndelibleFileNodeIF curFile = dir.getChildNode(curName);
 				int type;
 				if (curFile.isDirectory())
 					type = FUSEDirEntry.DT_DIR;
@@ -126,11 +138,16 @@ public class IndelibleFSDirHandle extends FUSEDirHandle
 			} catch (ObjectNotFoundException e)
 			{
 				// Must have been deleted - just skip
+			} catch (IOException e)
+			{
+				// Not ObjectNotFoundException through properly probably
 			}
+			
 		}
+		lastLoadedTime = System.currentTimeMillis();
 	}
 	
-	public IndelibleDirectoryNodeRemote getDir()
+	public IndelibleDirectoryNodeIF getDir()
 	{
 		return dir;
 	}
